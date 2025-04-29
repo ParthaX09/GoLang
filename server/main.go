@@ -1,14 +1,20 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"log"
+	"server/database"
 	"server/routes"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+
+	if err := database.Connect(); err != nil {
+        log.Fatal(err)
+    }
+	
 	router := gin.Default()
-
 	routes.UserRoutes(router)
-
 	router.Run(":8080")
 }
