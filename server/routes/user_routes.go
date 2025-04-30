@@ -1,14 +1,15 @@
 package routes
 
 import (
+	"database/sql"
 	"net/http"
+	"server/database"
 	"server/models"
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 )
 
 func UserRoutes(r *gin.Engine) {
+	// Create user
 	r.POST("/register", func(c *gin.Context) {
 		var newUser models.User
 		if err := c.ShouldBindJSON(&newUser); err != nil {
@@ -16,42 +17,52 @@ func UserRoutes(r *gin.Engine) {
 			return
 		}
 
-		newUser.ID = getNextUserID()
-		models.Users = append(models.Users, newUser)
-
-		// models.Users = append(models.Users, newUser)
-		c.JSON(http.StatusOK, gin.H{
-			"message": "User registered successfully",
-			"user":    newUser,
-		})
-	})
-
-	r.GET("/users", func(c *gin.Context) {
-		c.JSON(http.StatusOK, models.Users)
-	})
-
-
-	r.GET("/users/:id", func(c *gin.Context) {
-		id_param := c.Param("id")
-		id, err := strconv.Atoi(id_param)
+		result, err := database.DB.Exec("INSERT INTO users (name, email) VALUES (?, ?)", newUser.Name, newUser.Email)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error":"Invalid ID"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		for _, user := range models.Users{
-			if user.ID == id {
-				c.JSON(http.StatusOK, user)
-			}
-		}
+		id, _ := result.LastInsertId()
+		newUser.ID = int(id)
+
+		c.JSON(http.StatusOK, gin.H{"message": "User registered", "user": newUser})
 	})
-}
 
+	// Get all users
+	r.GET("/users", func(c *gin.Context) {
+		rows, err := database.DB.Query("SELECT id, name, email FROM users")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer rows.Close()
 
+		var users []models.User
+		for rows.Next() {
+			var u models.User
+			if err := rows.Scan(&u.ID, &u.Name, &u.Email); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			users = append(users, u)
+		}
+		c.JSON(http.StatusOK, users)
+	})
 
-func getNextUserID() int {
-	if len(models.Users) == 0 {
-		return 1
-	}
-	lastUser := models.Users[len(models.Users)-1]
-	return lastUser.ID + 1
+	// Get user by ID
+	r.GET("/users/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var user models.User
+		err := database.DB.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id).
+			Scan(&user.ID, &user.Name, &user.Email)
+
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, user)
+	})
 }
