@@ -30,6 +30,8 @@ func UserRoutes(r *gin.Engine) {
 	// 	c.JSON(http.StatusOK, gin.H{"message": "User registered", "user": newUser})
 	// })
 
+
+
 	r.POST("/register", func(c *gin.Context) {
 		var newUser models.User
 
@@ -43,13 +45,13 @@ func UserRoutes(r *gin.Engine) {
 		now := time.Now()
 		newUser.Created = now
 		newUser.Updated = now
-
+	
 		// Insert into DB with all relevant fields
 		result, err := database.DB.Exec(`
 			INSERT INTO users (name, email, phone, password, created, updated) 
 			VALUES (?, ?, ?, ?, ?, ?)`,
 			newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Created, newUser.Updated)
-
+	
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
