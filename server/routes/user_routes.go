@@ -11,27 +11,8 @@ import (
 )
 
 func UserRoutes(r *gin.Engine) {
-	// Create user
-	// r.POST("/register", func(c *gin.Context) {
-	// 	var newUser models.User
-	// 	if err := c.ShouldBindJSON(&newUser); err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	result, err := database.DB.Exec("INSERT INTO users (name, email) VALUES (?, ?)", newUser.Name, newUser.Email)
-	// 	if err != nil {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-	// 	id, _ := result.LastInsertId()
-	// 	newUser.ID = int(id)
-
-	// 	c.JSON(http.StatusOK, gin.H{"message": "User registered", "user": newUser})
-	// })
-
-
-
+	
+	//create user
 	r.POST("/register", func(c *gin.Context) {
 		var newUser models.User
 	
@@ -44,13 +25,13 @@ func UserRoutes(r *gin.Engine) {
 		// Manually set Created and Updated timestamps
 		now := time.Now()
 		newUser.Created = now
-		newUser.Updated = now
+		
 	
 		// Insert into DB with all relevant fields
 		result, err := database.DB.Exec(`
 			INSERT INTO users (name, email, phone, password, created, updated) 
 			VALUES (?, ?, ?, ?, ?, ?)`,
-			newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Created, newUser.Updated)
+			newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Created, nil)
 	
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
