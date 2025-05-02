@@ -5,28 +5,68 @@ import (
 	"net/http"
 	"server/database"
 	"server/models"
+	"time"
+
 	"github.com/gin-gonic/gin"
 )
 
 func UserRoutes(r *gin.Engine) {
 	// Create user
+	// r.POST("/register", func(c *gin.Context) {
+	// 	var newUser models.User
+	// 	if err := c.ShouldBindJSON(&newUser); err != nil {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+
+	// 	result, err := database.DB.Exec("INSERT INTO users (name, email) VALUES (?, ?)", newUser.Name, newUser.Email)
+	// 	if err != nil {
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+	// 	id, _ := result.LastInsertId()
+	// 	newUser.ID = int(id)
+
+	// 	c.JSON(http.StatusOK, gin.H{"message": "User registered", "user": newUser})
+	// })
+
+
+
 	r.POST("/register", func(c *gin.Context) {
 		var newUser models.User
+	
+		// Bind the request body to newUser
 		if err := c.ShouldBindJSON(&newUser); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-
-		result, err := database.DB.Exec("INSERT INTO users (name, email) VALUES (?, ?)", newUser.Name, newUser.Email)
+	
+		// Manually set Created and Updated timestamps
+		now := time.Now()
+		newUser.Created = now
+		newUser.Updated = now
+	
+		// Insert into DB with all relevant fields
+		result, err := database.DB.Exec(`
+			INSERT INTO users (name, email, phone, password, created, updated) 
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Created, newUser.Updated)
+	
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+	
+		// Get the inserted user ID
 		id, _ := result.LastInsertId()
 		newUser.ID = int(id)
-
-		c.JSON(http.StatusOK, gin.H{"message": "User registered", "user": newUser})
+	
+		c.JSON(http.StatusOK, gin.H{
+			"message": "User registered successfully",
+			"user":    newUser,
+		})
 	})
+	
 
 	// Get all users
 	r.GET("/users", func(c *gin.Context) {
