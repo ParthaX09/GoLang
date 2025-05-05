@@ -29,9 +29,9 @@ func UserRoutes(r *gin.Engine) {
 	
 		// Insert into DB with all relevant fields
 		result, err := database.DB.Exec(`
-			INSERT INTO users (name, email, phone, password, created, updated) 
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Created, newUser.Updated)
+			INSERT INTO users (name, email, phone, password) 
+			VALUES (?, ?, ?, ?)`,
+			newUser.Name, newUser.Email, newUser.Phone, newUser.Password)
 	
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -123,15 +123,12 @@ func UserRoutes(r *gin.Engine) {
 			existingUser.Password = password
 		}
 
-		// Update the timestamp
-		existingUser.Updated = time.Now()
-
 		_, err = database.DB.Exec(`
 			UPDATE users 
-			SET name = ?, email = ?, phone = ?, password = ?, updated = ? 
+			SET name = ?, email = ?, phone = ?, password = ?
 			WHERE id = ?`,
 			existingUser.Name, existingUser.Email, existingUser.Phone,
-			existingUser.Password, existingUser.Updated, id)
+			existingUser.Password, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
