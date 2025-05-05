@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"server/database"
 	"server/models"
-	"time"
+	"server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,10 +22,13 @@ func UserRoutes(r *gin.Engine) {
 			return
 		}
 
-		// Manually set Created and Updated timestamps
-		now := time.Now()
-		newUser.Created = now
-		newUser.Updated = now
+		// Hash the password
+		hashedPassword, err := utils.HashPassword(newUser.Password)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+			return
+		}
+		newUser.Password = hashedPassword
 	
 		// Insert into DB with all relevant fields
 		result, err := database.DB.Exec(`
@@ -120,7 +123,12 @@ func UserRoutes(r *gin.Engine) {
 			existingUser.Phone = phone
 		}
 		if password, ok := input["password"].(string); ok {
-			existingUser.Password = password
+			hashedPassword, err := utils.HashPassword(password)
+			if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+			return
+		}
+			existingUser.Password = hashedPassword
 		}
 
 		_, err = database.DB.Exec(`
