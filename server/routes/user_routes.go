@@ -11,27 +11,8 @@ import (
 )
 
 func UserRoutes(r *gin.Engine) {
+	
 	// Create user
-	// r.POST("/register", func(c *gin.Context) {
-	// 	var newUser models.User
-	// 	if err := c.ShouldBindJSON(&newUser); err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	result, err := database.DB.Exec("INSERT INTO users (name, email) VALUES (?, ?)", newUser.Name, newUser.Email)
-	// 	if err != nil {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-	// 	id, _ := result.LastInsertId()
-	// 	newUser.ID = int(id)
-
-	// 	c.JSON(http.StatusOK, gin.H{"message": "User registered", "user": newUser})
-	// })
-
-
-
 	r.POST("/register", func(c *gin.Context) {
 		var newUser models.User
 
@@ -105,47 +86,7 @@ func UserRoutes(r *gin.Engine) {
 		c.JSON(http.StatusOK, user)
 	})
 
-	// //Update the user
-	// r.PUT("/users/update/:id",func(c *gin.Context) {
-	// 	id:= c.Param("id")
-	// 	var updatedUser models.User
-	// 	if err := c.ShouldBindJSON(&updatedUser); err != nil{
-	// 		c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()})
-	// 		return
-	// 	}
-
-	// 	//update th timestamp
-	// 	updatedUser.Updated = time.Now()
-
-	// 	//update query
-	// 	result,err := database.DB.Exec(`UPDATE users SET name = ?, email = ?, phone = ?, password = ?, updated = ? WHERE id = ?`, updatedUser.Name,updatedUser.Email,updatedUser.Phone,updatedUser.Password,updatedUser.Updated,id)
-	// 	if err != nil{
-	// 		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
-	// 		return
-	// 	}
-
-	// 	//Check if any row was updated actually
-	// 	rowsAffected, err := result.RowsAffected()
-	// 	if err != nil {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-	// 	if rowsAffected == 0 {
-	// 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-	// 		return
-	// 	}
-	// 	updatedUser.ID = func() int {
-	// 		var i int
-	// 		fmt.Sscanf(id, "%d" ,&i)
-	// 		return i
-	// 	}()
-
-	// 	c.JSON(http.StatusOK,gin.H{
-	// 		"message":"User Updated Successfully",
-	// 		"user":updatedUser,
-	// 	})
-	// })
-
+	
 	//Update the user
 	r.PUT("/users/update/:id", func(c *gin.Context) {
 		id := c.Param("id")
