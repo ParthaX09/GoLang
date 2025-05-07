@@ -44,8 +44,19 @@ func registerHandler(c *gin.Context) {
 	}
 
 	// Validate required fields
-	if newUser.Name == "" || newUser.Email == "" || newUser.Phone == "" || newUser.Password == "" {
+	if newUser.Name == "" || newUser.Email == "" || newUser.Phone == "" || newUser.Password == "" || newUser.Role == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
+		return
+	}
+
+	// Validate role
+	validRoles := map[string]bool{
+		"admin":     true,
+		"sub_admin": true,
+		"client":    true,
+	}
+	if !validRoles[newUser.Role] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role. Must be 'admin', 'sub_admin', or 'client'"})
 		return
 	}
 
@@ -59,9 +70,9 @@ func registerHandler(c *gin.Context) {
 
 	// Insert into database
 	result, err := database.DB.Exec(`
-		INSERT INTO users (name, email, phone, password) 
-		VALUES (?, ?, ?, ?)`,
-		newUser.Name, newUser.Email, newUser.Phone, newUser.Password)
+		INSERT INTO users (name, email, phone, password, role) 
+		VALUES (?, ?, ?, ?, ?)`,
+		newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -125,7 +136,7 @@ func LoginHandler(c *gin.Context) {
 
 // Get all users handler (protected)
 func getAllUsersHandler(c *gin.Context) {
-	rows, err := database.DB.Query("SELECT id, name, email, phone, password, created, updated FROM users")
+	rows, err := database.DB.Query("SELECT id, name, email, phone, password, role, created, updated FROM users")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -135,7 +146,7 @@ func getAllUsersHandler(c *gin.Context) {
 	var users []models.User
 	for rows.Next() {
 		var user models.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Created, &user.Updated); err != nil {
+		if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Role, &user.Created, &user.Updated); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -148,8 +159,8 @@ func getAllUsersHandler(c *gin.Context) {
 func getUserByIdHandler(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
-	err := database.DB.QueryRow("SELECT id, name, email, phone, password, created, updated FROM users WHERE id = ?", id).
-		Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Created, &user.Updated)
+	err := database.DB.QueryRow("SELECT id, name, email, phone, password, role, created,  updated FROM users WHERE id = ?", id).
+		Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Role, &user.Created, &user.Updated)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -167,8 +178,8 @@ func updateUserHandler(c *gin.Context) {
 
 	// Fetch existing user
 	var existingUser models.User
-	err := database.DB.QueryRow("SELECT id, name, email, phone, password, created, updated FROM users WHERE id = ?", id).
-		Scan(&existingUser.ID, &existingUser.Name, &existingUser.Email, &existingUser.Phone, &existingUser.Password, &existingUser.Created, &existingUser.Updated)
+	err := database.DB.QueryRow("SELECT id, name, email, phone, password, role,  created, updated FROM users WHERE id = ?", id).
+		Scan(&existingUser.ID, &existingUser.Name, &existingUser.Email, &existingUser.Phone, &existingUser.Password, &existingUser.Role, &existingUser.Created, &existingUser.Updated)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -203,14 +214,17 @@ func updateUserHandler(c *gin.Context) {
 		}
 		existingUser.Password = hashedPassword
 	}
+	if role, ok := input["role"].(string); ok {
+		existingUser.Role = role
+	}
 
 	// Update in the database
 	_, err = database.DB.Exec(`
 		UPDATE users 
-		SET name = ?, email = ?, phone = ?, password = ? 
+		SET name = ?, email = ?, phone = ?, password = ?, role = ?
 		WHERE id = ?`,
 		existingUser.Name, existingUser.Email, existingUser.Phone,
-		existingUser.Password, id)
+		existingUser.Password, existingUser.Role, id)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -223,140 +237,3 @@ func updateUserHandler(c *gin.Context) {
 		"user":    existingUser,
 	})
 }
-	
-	// // Create user
-	// router.POST("/register", func(c *gin.Context) {
-	// 	var newUser models.User
-
-	// 	// Bind the request body to newUser
-	// 	if err := c.ShouldBindJSON(&newUser); err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	// Hash the password
-	// 	hashedPassword, err := utils.HashPassword(newUser.Password)
-	// 	if err != nil {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-	// 		return
-	// 	}
-	// 	newUser.Password = hashedPassword
-	
-	// 	// Insert into DB with all relevant fields
-	// 	result, err := database.DB.Exec(`
-	// 		INSERT INTO users (name, email, phone, password) 
-	// 		VALUES (?, ?, ?, ?)`,
-	// 		newUser.Name, newUser.Email, newUser.Phone, newUser.Password)
-	
-	// 	if err != nil {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	// Get the inserted user ID
-	// 	id, _ := result.LastInsertId()
-	// 	newUser.ID = int(id)
-
-	// 	c.JSON(http.StatusOK, gin.H{
-	// 		"message": "User registered successfully",
-	// 		"user":    newUser,
-	// 	})
-	// })
-
-// 	// Get all users
-// 	router.GET("/users", func(c *gin.Context) {
-// 		rows, err := database.DB.Query("SELECT id, name, email, phone, password, created, updated FROM users")
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
-// 		defer rows.Close()
-
-// 		var users []models.User
-// 		for rows.Next() {
-// 			var user models.User
-// 			if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Created, &user.Updated); err != nil {
-// 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 				return
-// 			}
-// 			users = append(users, user)
-// 		}
-// 		c.JSON(http.StatusOK, users)
-// 	})
-
-// 	// Get user by ID
-// 	router.GET("/users/:id", func(c *gin.Context) {
-// 		id := c.Param("id")
-// 		var user models.User
-// 		err := database.DB.QueryRow("SELECT id, name, email, phone, password, created, updated FROM users WHERE id = ?", id).
-// 			Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Created, &user.Updated)
-
-// 		if err == sql.ErrNoRows {
-// 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-// 			return
-// 		} else if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
-// 		c.JSON(http.StatusOK, user)
-// 	})
-
-	
-// 	//Update the user
-// 	router.PUT("/users/update/:id", func(c *gin.Context) {
-// 		id := c.Param("id")
-
-// 		// Fetching existing user
-// 		var existingUser models.User
-// 		err := database.DB.QueryRow("SELECT id, name, email, phone, password, created, updated FROM users WHERE id = ?", id).
-// 			Scan(&existingUser.ID, &existingUser.Name, &existingUser.Email, &existingUser.Phone, &existingUser.Password, &existingUser.Created, &existingUser.Updated)
-// 		if err == sql.ErrNoRows {
-// 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-// 			return
-// 		} else if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		var input map[string]interface{}
-// 		if err := c.ShouldBindJSON(&input); err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		//Update only provided fields
-// 		if name, ok := input["name"].(string); ok {
-// 			existingUser.Name = name
-// 		}
-// 		if email, ok := input["email"].(string); ok {
-// 			existingUser.Email = email
-// 		}
-// 		if phone, ok := input["phone"].(string); ok {
-// 			existingUser.Phone = phone
-// 		}
-// 		if password, ok := input["password"].(string); ok {
-// 			hashedPassword, err := utils.HashPassword(password)
-// 			if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-// 			return
-// 		}
-// 			existingUser.Password = hashedPassword
-// 		}
-
-// 		_, err = database.DB.Exec(`
-// 			UPDATE users 
-// 			SET name = ?, email = ?, phone = ?, password = ?
-// 			WHERE id = ?`,
-// 			existingUser.Name, existingUser.Email, existingUser.Phone,
-// 			existingUser.Password, id)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		c.JSON(http.StatusOK, gin.H{
-// 			"message": "User updated successfully",
-// 			"user":    existingUser,
-// 		})
-// 	})
-//}
