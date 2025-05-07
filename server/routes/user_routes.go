@@ -30,6 +30,7 @@ func UserRoutes(router *gin.Engine) {
 
 		// Update user - Protected route
 		auth.PUT("/users/update/:id", updateUserHandler)
+
 	}
 }
 
@@ -155,6 +156,8 @@ func getAllUsersHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
+
+
 // Get user by ID handler (protected)
 func getUserByIdHandler(c *gin.Context) {
 	id := c.Param("id")
@@ -237,3 +240,4 @@ func updateUserHandler(c *gin.Context) {
 		"user":    existingUser,
 	})
 }
+
