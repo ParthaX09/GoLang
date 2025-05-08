@@ -2,6 +2,7 @@ package routes
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"server/database"
 	"server/middleware"
@@ -23,13 +24,13 @@ func UserRoutes(router *gin.Engine) {
 	auth.Use(middleware.AuthMiddleware()) // Use AuthMiddleware for authentication
 	{
 		// Get all users - Protected route
-		auth.GET("/users", getAllUsersHandler)
+		auth.GET("/users", middleware.RoleMiddleware("admin", "sub_admin"), getAllUsersHandler)
 
 		// Get user by ID - Protected route
-		auth.GET("/users/:id", getUserByIdHandler)
+		auth.GET("/users/:id", middleware.RoleMiddleware("admin", "sub_admin", "client"), getUserByIdHandler)
 
 		// Update user - Protected route
-		auth.PUT("/users/update/:id", updateUserHandler)
+		auth.PUT("/users/update/:id", middleware.RoleMiddleware("admin"), updateUserHandler)
 
 	}
 }
@@ -105,8 +106,8 @@ func LoginHandler(c *gin.Context) {
 
 	// Fetch user from DB
 	var user models.User
-	err := database.DB.QueryRow("SELECT id, password FROM users WHERE email = ?", input.Email).
-		Scan(&user.ID, &user.Password)
+	err := database.DB.QueryRow("SELECT id, password, role FROM users WHERE email = ?", input.Email).
+		Scan(&user.ID, &user.Password, &user.Role)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
@@ -122,7 +123,7 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	// Generate JWT
-	token, err := utils.GenerateJWT(user.ID)
+	token, err := utils.GenerateJWT(user.ID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -161,6 +162,15 @@ func getAllUsersHandler(c *gin.Context) {
 // Get user by ID handler (protected)
 func getUserByIdHandler(c *gin.Context) {
 	id := c.Param("id")
+
+	//if client then shows the user by its own id
+	userRole := c.MustGet("userRole").(string)
+	userID := c.MustGet("userID").(int)
+	if userRole == "client" && id != fmt.Sprint(userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Clients can only access their own data"})
+		return
+	}
+
 	var user models.User
 	err := database.DB.QueryRow("SELECT id, name, email, phone, password, role, created,  updated FROM users WHERE id = ?", id).
 		Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.Role, &user.Created, &user.Updated)
