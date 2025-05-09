@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 )
-
+//JWT
 var jwtKey []byte
 
 func init() {
