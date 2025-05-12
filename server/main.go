@@ -4,6 +4,7 @@ import (
 	"log"
 	"server/database"
 	"server/routes"
+
 	"github.com/gin-gonic/gin"
 )
 
