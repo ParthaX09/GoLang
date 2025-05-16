@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"net/http"
 	"server/database"
 	"server/models"
@@ -45,17 +44,11 @@ func RegisterHandler(c *gin.Context) {
 	newUser.Password = hashedPassword
 
 	// Insert into database
-	result, err := database.DB.Exec(`
-		INSERT INTO users (name, email, phone, password, role) 
-		VALUES (?, ?, ?, ?, ?)`,
-		newUser.Name, newUser.Email, newUser.Phone, newUser.Password, newUser.Role)
+	id, err := database.CreateUser(&newUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Get the inserted user ID
-	id, _ := result.LastInsertId()
 	newUser.ID = int(id)
 
 	// Respond with success
@@ -79,14 +72,9 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	// Fetch user from DB
-	var user models.User
-	err := database.DB.QueryRow("SELECT id, password, role FROM users WHERE email = ?", input.Email).
-		Scan(&user.ID, &user.Password, &user.Role)
-	if err == sql.ErrNoRows {
+	user, err := database.GetUserByEmail(input.Email)
+	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
-		return
-	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -114,27 +102,8 @@ func LoginHandler(c *gin.Context) {
 func GetAllUsersHandler(c *gin.Context) {
 	role := c.MustGet("userRole").(string)
 
-	var rows *sql.Rows
-	var err error
-
-	switch role {
-	case "admin":
-		rows, err = database.DB.Query("SELECT id, name, email, phone, password, role, created, updated FROM users")
-
-	case "sub_admin":
-		rows, err = database.DB.Query(`SELECT id, name, email, phone, password, role, created, updated 
-			FROM users WHERE role IN ('sub_admin', 'client')`)
-
-	case "client":
-	rows, err = database.DB.Query(`
-		SELECT id, name, email, phone, password, role, created, updated 
-		FROM users WHERE role = 'client'`)
-
-	default:
-		c.JSON(http.StatusForbidden, gin.H{"error": "Invalid role"})
-		return
-	}
-
+	//Fetch from DB
+	rows, err := database.GetAllUsersByRole(role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -155,8 +124,6 @@ func GetAllUsersHandler(c *gin.Context) {
 }
 
 
-
-
 // Get user by ID handler (protected)
 func GetUserByIdHandler(c *gin.Context) {
 	id := c.Param("id")
@@ -164,15 +131,9 @@ func GetUserByIdHandler(c *gin.Context) {
 	requestorID := c.MustGet("userID").(int)
 
 	// Fetch the target user
-	var targetUser models.User
-	err := database.DB.QueryRow("SELECT id, name, email, phone, password, role, created, updated FROM users WHERE id = ?", id).
-		Scan(&targetUser.ID, &targetUser.Name, &targetUser.Email, &targetUser.Phone, &targetUser.Password, &targetUser.Role, &targetUser.Created, &targetUser.Updated)
-
-	if err == sql.ErrNoRows {
+	targetUser, err := database.GetUserByID(id)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -204,15 +165,9 @@ func UpdateUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
 	// Fetch existing user
-	var existingUser models.User
-	err := database.DB.QueryRow("SELECT id, name, email, phone, password, role,  created, updated FROM users WHERE id = ?", id).
-		Scan(&existingUser.ID, &existingUser.Name, &existingUser.Email, &existingUser.Phone, &existingUser.Password, &existingUser.Role, &existingUser.Created, &existingUser.Updated)
-
-	if err == sql.ErrNoRows {
+	existingUser, err := database.GetUserByID(id)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -246,14 +201,7 @@ func UpdateUserHandler(c *gin.Context) {
 	}
 
 	// Update in the database
-	_, err = database.DB.Exec(`
-		UPDATE users 
-		SET name = ?, email = ?, phone = ?, password = ?, role = ?
-		WHERE id = ?`,
-		existingUser.Name, existingUser.Email, existingUser.Phone,
-		existingUser.Password, existingUser.Role, id)
-
-	if err != nil {
+	if err := database.UpdateUser(existingUser); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
